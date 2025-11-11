@@ -5,6 +5,8 @@ pygame.init()
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
 FPS = 60
+GRAVITY = 0.8
+FALL_SPEED = 15
 
 class Player:
 
@@ -16,7 +18,9 @@ class Player:
         self.rect = pygame.Rect(x, y, self.width, self.height)
 
         self.vel_x = 0
+        self.vel_y = 0
         self.speed = 5
+        self.on_ground = False
 
     def draw(self, screen):
 
@@ -32,6 +36,12 @@ class Player:
     def update(self):
         self.x += self.vel_x
         self.rect.x = self.x
+
+        self.y += self.vel_y
+        self.rect.y = self.y
+
+        if not self.on_ground:
+            self.vel_y = min(self.vel_y + GRAVITY, FALL_SPEED)
 
 class GameLoop:
 
