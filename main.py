@@ -15,9 +15,23 @@ class Player:
         self.height = 48
         self.rect = pygame.Rect(x, y, self.width, self.height)
 
+        self.vel_x = 0
+        self.speed = 5
+
     def draw(self, screen):
 
         pygame.draw.rect(screen, (100, 100, 200), self.rect)
+
+    def handle_input(self, keys):
+        self.vel_x = 0
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            self.vel_x = -self.speed
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            self.vel_x = self.speed
+
+    def update(self):
+        self.x += self.vel_x
+        self.rect.x = self.x
 
 class GameLoop:
 
@@ -30,7 +44,14 @@ class GameLoop:
         self.player = Player(200, 300)
 
     def draw(self):
+        self.screen.fill((30, 30, 30))
         self.player.draw(self.screen)
+        pygame.display.flip()
+
+    def update(self):
+        keys = pygame.key.get_pressed()
+        self.player.handle_input(keys)
+        self.player.update()
 
     def run(self):
         while self.running:
@@ -39,8 +60,8 @@ class GameLoop:
                     self.running = False
 
             self.clock.tick(FPS)
+            self.update()
             self.draw()
-            pygame.display.flip()
 
         pygame.quit()
 
