@@ -8,6 +8,7 @@ FPS = 60
 GRAVITY = 0.8
 FALL_SPEED = 15
 
+
 class Player:
 
     def __init__(self, x, y):
@@ -65,8 +66,11 @@ class Player:
                 self.y = self.rect.y
                 self.vel_y = 0
                 self.on_ground = True
-                if platform.type in ("moving_vertical",):
+                if platform.type in ("moving_vertical", "moving_horizontal"):
                     self.on_moving_platform = platform
+                    if platform.vel_x != 0:
+                        self.x += platform.vel_x
+                        self.rect.x = self.x
 
             elif self.vel_y < 0 and self.rect.top < platform.rect.bottom:
                 self.rect.top = platform.rect.bottom
@@ -74,10 +78,6 @@ class Player:
                 self.vel_y = 0
 
     def update(self, platforms):
-        self.x += self.vel_x
-        self.rect.x = self.x
-        self.check_collision_x(platforms)
-
         if not self.on_ground:
             self.vel_y = min(self.vel_y + GRAVITY, FALL_SPEED)
 
@@ -85,11 +85,22 @@ class Player:
         self.rect.y = self.y
         self.check_collision_y(platforms)
 
-        if self.on_moving_platform:
-            if self.on_moving_platform.vel_y > 0:
-                self.y += self.on_moving_platform.vel_y
-                self.rect.y = self.y
-                self.check_collision_y(platforms)
+        current_platform = self.on_moving_platform
+
+        if current_platform and current_platform.vel_y > 0:
+            self.y += current_platform.vel_y
+            self.rect.y = self.y
+            self.check_collision_y(platforms)
+            if self.on_ground:
+                current_platform = self.on_moving_platform
+
+        if current_platform and current_platform.vel_x != 0:
+            self.x += current_platform.vel_x
+            self.rect.x = self.x
+
+        self.x += self.vel_x
+        self.rect.x = self.x
+        self.check_collision_x(platforms)
 
         if self.x < 0:
             self.x = self.rect.x = self.vel_x = 0
@@ -117,8 +128,15 @@ class Platform:
             if abs(self.rect.y - self.original_y) > self.move_range:
                 self.move_direction *= -1
 
+        elif self.type == "moving_horizontal":
+            self.vel_x = self.move_speed * self.move_direction
+            self.rect.x += self.vel_x
+            if abs(self.rect.x - self.original_x) > self.move_range:
+                self.move_direction *= -1
+
     def draw(self, screen):
         pygame.draw.rect(screen, (100, 100, 200), self.rect)
+
 
 class GameLoop:
 
@@ -139,6 +157,10 @@ class GameLoop:
         moving_vert = Platform(200, 200, 100, 20, "moving_vertical")
         moving_vert.move_range = 120
         platforms.append(moving_vert)
+
+        moving_horiz = Platform(400, 300, 100, 20, "moving_horizontal")
+        moving_horiz.move_range = 150
+        platforms.append(moving_horiz)
 
         return platforms
 
@@ -167,6 +189,7 @@ class GameLoop:
             self.draw()
 
         pygame.quit()
+
 
 game = GameLoop()
 game.run()
