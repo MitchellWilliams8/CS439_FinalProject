@@ -9,6 +9,19 @@ GRAVITY = 0.8
 FALL_SPEED = 15
 
 
+class Camera:
+    def __init__(self):
+        self.offset_x = 0
+        self.offset_y = 0
+
+    def apply(self, rect):
+        return pygame.Rect(rect.x - self.offset_x, rect.y - self.offset_y, rect.width, rect.height)
+
+    def update(self, target):
+        self.offset_x = target.rect.centerx - SCREEN_WIDTH // 2
+        self.offset_y = target.rect.centery - SCREEN_HEIGHT // 2
+
+
 class Player:
 
     def __init__(self, x, y):
@@ -25,8 +38,9 @@ class Player:
         self.jump_power = -15
         self.on_moving_platform = None
 
-    def draw(self, screen):
-        pygame.draw.rect(screen, (100, 100, 200), self.rect)
+    def draw(self, screen, camera):
+        draw_rect = camera.apply(self.rect)
+        pygame.draw.rect(screen, (100, 100, 200), draw_rect)
 
     def handle_input(self, keys):
         self.vel_x = 0
@@ -102,8 +116,6 @@ class Player:
         self.rect.x = self.x
         self.check_collision_x(platforms)
 
-        if self.x < 0:
-            self.x = self.rect.x = self.vel_x = 0
 
 class Platform:
 
@@ -134,8 +146,9 @@ class Platform:
             if abs(self.rect.x - self.original_x) > self.move_range:
                 self.move_direction *= -1
 
-    def draw(self, screen):
-        pygame.draw.rect(screen, (100, 100, 200), self.rect)
+    def draw(self, screen, camera):
+        draw_rect = camera.apply(self.rect)
+        pygame.draw.rect(screen, (100, 100, 200), draw_rect)
 
 
 class GameLoop:
@@ -147,12 +160,22 @@ class GameLoop:
         self.running = True
         self.platforms = self.create_level()
         self.player = Player(200, 300)
+        self.camera = Camera()
 
     def create_level(self):
         platforms = []
 
         platforms.append(Platform(50, 400, 300, 40))
         platforms.append(Platform(500, 400, 300, 40))
+
+        platforms.append(Platform(900, 350, 200, 40))
+        platforms.append(Platform(1200, 300, 200, 40))
+        platforms.append(Platform(1400, 250, 200, 40))
+        platforms.append(Platform(1500, 200, 200, 40))
+
+        platforms.append(Platform(-300, 400, 200, 40))
+        platforms.append(Platform(-600, 350, 200, 40))
+        platforms.append(Platform(-900, 300, 200, 40))
 
         moving_vert = Platform(200, 200, 100, 20, "moving_vertical")
         moving_vert.move_range = 120
@@ -166,9 +189,12 @@ class GameLoop:
 
     def draw(self):
         self.screen.fill((30, 30, 30))
-        self.player.draw(self.screen)
+
         for platform in self.platforms:
-            platform.draw(self.screen)
+            platform.draw(self.screen, self.camera)
+
+        self.player.draw(self.screen, self.camera)
+
         pygame.display.flip()
 
     def update(self):
@@ -177,6 +203,7 @@ class GameLoop:
             platform.update()
         self.player.handle_input(keys)
         self.player.update(self.platforms)
+        self.camera.update(self.player)
 
     def run(self):
         while self.running:
