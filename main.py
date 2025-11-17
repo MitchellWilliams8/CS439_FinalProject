@@ -37,6 +37,8 @@ class Player:
         self.on_ground = False
         self.jump_power = -15
         self.on_moving_platform = None
+        self.health = 100
+        self.player_dead = False
 
     def draw(self, screen, camera):
         draw_rect = camera.apply(self.rect)
@@ -91,6 +93,11 @@ class Player:
                 self.y = self.rect.y
                 self.vel_y = 0
 
+    def check_saw_collision(self, saws):
+        for saw in saws:
+            if self.rect.colliderect(saw.rect):
+                self.health -= 20
+
     def update(self, platforms):
         if not self.on_ground:
             self.vel_y = min(self.vel_y + GRAVITY, FALL_SPEED)
@@ -116,6 +123,24 @@ class Player:
         self.rect.x = self.x
         self.check_collision_x(platforms)
 
+        if self.y >= 1000:
+            self.health -= 100
+
+        if self.health <= 0:
+            self.player_dead = True
+
+class Saw:
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.width = 32
+        self.height = 48
+        self.rect = pygame.Rect(x, y, self.width, self.height)
+
+    def draw(self, screen, camera):
+        draw_rect = camera.apply(self.rect)
+        pygame.draw.rect(screen, (200, 100, 200), draw_rect)
 
 class Platform:
 
@@ -158,11 +183,13 @@ class GameLoop:
         pygame.display.set_caption("")
         self.clock = pygame.time.Clock()
         self.running = True
-        self.platforms = self.create_level()
+        self.platforms, self.saws = self.create_level()
         self.player = Player(200, 300)
         self.camera = Camera()
 
+
     def create_level(self):
+        saws = []
         platforms = []
 
         platforms.append(Platform(50, 400, 300, 40))
@@ -185,7 +212,9 @@ class GameLoop:
         moving_horiz.move_range = 150
         platforms.append(moving_horiz)
 
-        return platforms
+        saws.append(Saw(600, 300))
+        saws.append(Saw(400, 300))
+        return platforms, saws
 
     def draw(self):
         self.screen.fill((30, 30, 30))
@@ -195,6 +224,9 @@ class GameLoop:
 
         self.player.draw(self.screen, self.camera)
 
+        for saw in self.saws:
+            saw.draw(self.screen, self.camera)
+
         pygame.display.flip()
 
     def update(self):
@@ -203,7 +235,10 @@ class GameLoop:
             platform.update()
         self.player.handle_input(keys)
         self.player.update(self.platforms)
+        self.player.check_saw_collision(self.saws)
         self.camera.update(self.player)
+        if self.player.player_dead:
+            self.running = False
 
     def run(self):
         while self.running:
