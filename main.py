@@ -8,7 +8,6 @@ FPS = 60
 GRAVITY = 0.8
 FALL_SPEED = 15
 
-
 class Camera:
     def __init__(self):
         self.offset_x = 0
@@ -21,14 +20,13 @@ class Camera:
         self.offset_x = target.rect.centerx - SCREEN_WIDTH // 2
         self.offset_y = target.rect.centery - SCREEN_HEIGHT // 2
 
-
 class Player:
 
-    def __init__(self, x, y):
+    def __init__(self, x, y, sprite_sheet_path="Assets/Player.png"):
         self.x = x
         self.y = y
-        self.width = 32
-        self.height = 48
+        self.width = 60
+        self.height = 60
         self.rect = pygame.Rect(x, y, self.width, self.height)
 
         self.vel_x = 0
@@ -39,10 +37,110 @@ class Player:
         self.on_moving_platform = None
         self.health = 100
         self.player_dead = False
+        self.facing_right = True
+
+        self.sprite_sheet = None
+        self.animations = {
+            'idle': [],
+            'walk_right': [],
+            'walk_left': [],
+            'jump': [],
+            'fall': []
+        }
+        self.current_animation = 'idle'
+        self.current_frame = 0
+        self.frame_counter = 0
+
+        self.animation_speeds = {
+            'idle': 15,
+            'walk_right': 8,
+            'walk_left': 8,
+            'jump': 12,
+            'fall': 12
+        }
+
+        self.load_sprite_sheet(sprite_sheet_path)
+
+    def load_sprite_sheet(self, path, frame_width=32, frame_height=32,
+                          idle_frames=2, walk_frames=3, jump_frames=2):
+        try:
+            self.sprite_sheet = pygame.image.load(path).convert_alpha()
+
+            frame_index = 0
+
+            for i in range(idle_frames):
+                frame_x = frame_index * frame_width
+                frame = self.sprite_sheet.subsurface(pygame.Rect(frame_x, 0, frame_width, frame_height))
+                frame = pygame.transform.scale(frame, (self.width, self.height))
+                self.animations['idle'].append(frame)
+                frame_index += 1
+
+            for i in range(walk_frames):
+                frame_x = frame_index * frame_width
+                frame = self.sprite_sheet.subsurface(pygame.Rect(frame_x, 0, frame_width, frame_height))
+                frame = pygame.transform.scale(frame, (self.width, self.height))
+                self.animations['walk_right'].append(frame)
+                frame_index += 1
+
+            for frame in self.animations['walk_right']:
+                flipped = pygame.transform.flip(frame, True, False)
+                self.animations['walk_left'].append(flipped)
+
+            for i in range(jump_frames):
+                frame_x = frame_index * frame_width
+                frame = self.sprite_sheet.subsurface(pygame.Rect(frame_x, 0, frame_width, frame_height))
+                frame = pygame.transform.scale(frame, (self.width, self.height))
+                self.animations['jump'].append(frame)
+                frame_index += 1
+
+            if self.animations['jump']:
+                self.animations['fall'] = [self.animations['jump'][-1]]
+
+        except Exception as e:
+            print(f"Could not load sprite sheet: {path}, Error: {e}")
+            self.sprite_sheet = None
+
+    def update_animation(self):
+        new_animation = 'idle'
+
+        is_grounded = self.on_ground or abs(self.vel_y) < 1
+
+        if not is_grounded:
+            new_animation = 'jump'
+        elif abs(self.vel_x) > 0.1:
+            if self.vel_x > 0:
+                new_animation = 'walk_right'
+                self.facing_right = True
+            else:
+                new_animation = 'walk_left'
+                self.facing_right = False
+
+        if new_animation != self.current_animation:
+            self.current_animation = new_animation
+            self.current_frame = 0
+            self.frame_counter = 0
+
+        if self.animations[self.current_animation]:
+            frames = self.animations[self.current_animation]
+            current_speed = self.animation_speeds.get(self.current_animation, 15)
+            self.frame_counter += 1
+
+            if self.frame_counter >= current_speed:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(frames)
 
     def draw(self, screen, camera):
         draw_rect = camera.apply(self.rect)
-        pygame.draw.rect(screen, (100, 100, 200), draw_rect)
+
+        if self.animations[self.current_animation] and len(self.animations[self.current_animation]) > 0:
+            frames = self.animations[self.current_animation]
+
+            if self.current_frame >= len(frames):
+                self.current_frame = 0
+
+            screen.blit(frames[self.current_frame], draw_rect)
+        else:
+            pygame.draw.rect(screen, (100, 100, 200), draw_rect)
 
     def handle_input(self, keys):
         self.vel_x = 0
@@ -73,20 +171,24 @@ class Player:
         self.on_ground = False
         self.on_moving_platform = None
 
+        ground_tolerance = 3
+
         for platform in platforms:
             if not self.rect.colliderect(platform.rect):
                 continue
 
-            if self.rect.bottom <= platform.rect.top + 20 and self.vel_y >= 0:
+            if self.vel_y >= 0 and self.rect.bottom <= platform.rect.top + ground_tolerance + abs(self.vel_y):
                 self.rect.bottom = platform.rect.top
                 self.y = self.rect.y
                 self.vel_y = 0
                 self.on_ground = True
+
                 if platform.type in ("moving_vertical", "moving_horizontal"):
                     self.on_moving_platform = platform
                     if platform.vel_x != 0:
                         self.x += platform.vel_x
                         self.rect.x = self.x
+                break
 
             elif self.vel_y < 0 and self.rect.top < platform.rect.bottom:
                 self.rect.top = platform.rect.bottom
@@ -129,22 +231,53 @@ class Player:
         if self.health <= 0:
             self.player_dead = True
 
+        self.update_animation()
+
 class Saw:
 
-    def __init__(self, x, y):
+    def __init__(self, x, y, sprite_sheet_path="Assets/Saw.png"):
         self.x = x
         self.y = y
-        self.width = 32
-        self.height = 48
+        self.width = 100
+        self.height = 100
         self.rect = pygame.Rect(x, y, self.width, self.height)
+
+        self.sprite_sheet = None
+        self.frames = []
+        self.current_frame = 0
+        self.animation_speed = 0.5
+        self.frame_counter = 0
+
+        self.load_sprite_sheet(sprite_sheet_path)
+
+    def load_sprite_sheet(self, path, frame_width=32, frame_height=32, num_frames=4):
+        try:
+            self.sprite_sheet = pygame.image.load(path).convert_alpha()
+
+            for i in range(num_frames):
+                frame_x = i * frame_width
+                frame = self.sprite_sheet.subsurface(pygame.Rect(frame_x, 0, frame_width, frame_height))
+                frame = pygame.transform.scale(frame, (self.width, self.height))
+                self.frames.append(frame)
+        except:
+            print(f"Could not load sprite sheet: {path}")
+            self.sprite_sheet = None
+
+    def update(self):
+        if self.frames:
+            self.frame_counter += self.animation_speed
+            if self.frame_counter >= 1:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.frames)
 
     def draw(self, screen, camera):
         draw_rect = camera.apply(self.rect)
-        pygame.draw.rect(screen, (200, 100, 200), draw_rect)
+
+        screen.blit(self.frames[self.current_frame], draw_rect)
 
 class Platform:
 
-    def __init__(self, x, y, width, height, platform_type="normal"):
+    def __init__(self, x, y, width, height, platform_type="normal", image_path="Assets/Platform.png"):
         self.rect = pygame.Rect(x, y, width, height)
         self.type = platform_type
         self.original_x = x
@@ -155,6 +288,16 @@ class Platform:
         self.move_direction = 1
         self.vel_x = 0
         self.vel_y = 0
+
+        self.load_image(image_path)
+
+    def load_image(self, path):
+        try:
+            self.image = pygame.image.load(path).convert_alpha()
+            self.image = pygame.transform.scale(self.image, (self.rect.width, self.rect.height))
+        except:
+            print(f"Could not load image: {path}")
+            self.image = None
 
     def update(self):
         self.vel_x = self.vel_y = 0
@@ -173,20 +316,33 @@ class Platform:
 
     def draw(self, screen, camera):
         draw_rect = camera.apply(self.rect)
-        pygame.draw.rect(screen, (100, 100, 200), draw_rect)
 
+        screen.blit(self.image, draw_rect)
 
 class GameLoop:
 
-    def __init__(self):
+    def __init__(self, background_path="Assets/Background.png"):
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("")
         self.clock = pygame.time.Clock()
         self.running = True
         self.platforms, self.saws = self.create_level()
+
         self.player = Player(200, 300)
+
         self.camera = Camera()
 
+        self.background = None
+
+        self.load_background(background_path)
+
+    def load_background(self, path):
+        try:
+            self.background = pygame.image.load(path).convert()
+            print(f"Background loaded: {path}")
+        except Exception as e:
+            print(f"Could not load background: {path}, Error: {e}")
+            self.background = None
 
     def create_level(self):
         saws = []
@@ -214,10 +370,22 @@ class GameLoop:
 
         saws.append(Saw(600, 300))
         saws.append(Saw(400, 300))
+
         return platforms, saws
 
     def draw(self):
-        self.screen.fill((30, 30, 30))
+        if self.background:
+            bg_width = self.background.get_width()
+            bg_height = self.background.get_height()
+
+            tiles_x = (SCREEN_WIDTH // bg_width) + 1
+            tiles_y = (SCREEN_HEIGHT // bg_height) + 1
+
+            for x in range(tiles_x):
+                for y in range(tiles_y):
+                    tile_x = x * bg_width
+                    tile_y = y * bg_height
+                    self.screen.blit(self.background, (tile_x, tile_y))
 
         for platform in self.platforms:
             platform.draw(self.screen, self.camera)
@@ -233,6 +401,8 @@ class GameLoop:
         keys = pygame.key.get_pressed()
         for platform in self.platforms:
             platform.update()
+        for saw in self.saws:
+            saw.update()
         self.player.handle_input(keys)
         self.player.update(self.platforms)
         self.player.check_saw_collision(self.saws)
@@ -251,7 +421,6 @@ class GameLoop:
             self.draw()
 
         pygame.quit()
-
 
 game = GameLoop()
 game.run()
