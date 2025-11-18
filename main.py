@@ -27,7 +27,9 @@ class Player:
         self.y = y
         self.width = 60
         self.height = 60
-        self.rect = pygame.Rect(x, y, self.width, self.height)
+        self.hitbox_width = 35
+        self.hitbox_height = 55
+        self.rect = pygame.Rect(x, y, self.hitbox_width, self.hitbox_height)
 
         self.vel_x = 0
         self.vel_y = 0
@@ -39,30 +41,24 @@ class Player:
         self.player_dead = False
         self.facing_right = True
 
+        self.damage_cooldown = 0
+        self.damage_cooldown_max = 60
+        self.invincible = False
+        self.game_loop = None
         self.sprite_sheet = None
-        self.animations = {
-            'idle': [],
-            'walk_right': [],
-            'walk_left': [],
-            'jump': [],
-            'fall': []
-        }
+        self.animations = {'idle': [],'walk_right': [],'walk_left': [],'jump': [],'fall': []}
         self.current_animation = 'idle'
         self.current_frame = 0
         self.frame_counter = 0
 
-        self.animation_speeds = {
-            'idle': 15,
-            'walk_right': 8,
-            'walk_left': 8,
-            'jump': 12,
-            'fall': 12
-        }
+        self.animation_speeds = {'idle': 15,'walk_right': 8,'walk_left': 8,'jump': 12,'fall': 12}
 
         self.load_sprite_sheet(sprite_sheet_path)
 
-    def load_sprite_sheet(self, path, frame_width=32, frame_height=32,
-                          idle_frames=2, walk_frames=3, jump_frames=2):
+    def set_game_loop(self, game_loop_instance):
+        self.game_loop = game_loop_instance
+
+    def load_sprite_sheet(self, path, frame_width=32, frame_height=32, idle_frames=2, walk_frames=3, jump_frames=2):
         try:
             self.sprite_sheet = pygame.image.load(path).convert_alpha()
 
@@ -130,7 +126,13 @@ class Player:
                 self.current_frame = (self.current_frame + 1) % len(frames)
 
     def draw(self, screen, camera):
-        draw_rect = camera.apply(self.rect)
+        sprite_rect = pygame.Rect(
+            self.rect.x - (self.width - self.hitbox_width) // 2,
+            self.rect.y - (self.height - self.hitbox_height) // 2,
+            self.width,
+            self.height
+        )
+        draw_rect = camera.apply(sprite_rect)
 
         if self.animations[self.current_animation] and len(self.animations[self.current_animation]) > 0:
             frames = self.animations[self.current_animation]
@@ -138,7 +140,9 @@ class Player:
             if self.current_frame >= len(frames):
                 self.current_frame = 0
 
-            screen.blit(frames[self.current_frame], draw_rect)
+            current_surface = frames[self.current_frame]
+
+            screen.blit(current_surface, draw_rect)
         else:
             pygame.draw.rect(screen, (100, 100, 200), draw_rect)
 
@@ -196,11 +200,24 @@ class Player:
                 self.vel_y = 0
 
     def check_saw_collision(self, saws):
+        if self.invincible:
+            return
+
         for saw in saws:
             if self.rect.colliderect(saw.rect):
                 self.health -= 20
+                self.damage_cooldown = self.damage_cooldown_max
+                self.invincible = True
+                if self.game_loop:
+                    self.game_loop.trigger_background_flash()
+                break
 
     def update(self, platforms):
+        if self.damage_cooldown > 0:
+            self.damage_cooldown -= 1
+            if self.damage_cooldown == 0:
+                self.invincible = False
+
         if not self.on_ground:
             self.vel_y = min(self.vel_y + GRAVITY, FALL_SPEED)
 
@@ -240,7 +257,9 @@ class Saw:
         self.y = y
         self.width = 100
         self.height = 100
-        self.rect = pygame.Rect(x, y, self.width, self.height)
+        self.hitbox_width = 70
+        self.hitbox_height = 70
+        self.rect = pygame.Rect(x + (self.width - self.hitbox_width) // 2,y + (self.height - self.hitbox_height) // 2,self.hitbox_width,self.hitbox_height)
 
         self.sprite_sheet = None
         self.frames = []
@@ -271,7 +290,8 @@ class Saw:
                 self.current_frame = (self.current_frame + 1) % len(self.frames)
 
     def draw(self, screen, camera):
-        draw_rect = camera.apply(self.rect)
+        sprite_rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        draw_rect = camera.apply(sprite_rect)
 
         screen.blit(self.frames[self.current_frame], draw_rect)
 
@@ -319,22 +339,85 @@ class Platform:
 
         screen.blit(self.image, draw_rect)
 
+class HealthBar:
+
+    def __init__(self, heart_path="Assets/Heart.png"):
+        self.heart_image = None
+        self.heart_size = 40
+        self.heart_spacing = 10
+        self.max_hearts = 10
+        self.load_heart(heart_path)
+
+    def load_heart(self, path):
+        try:
+            self.heart_image = pygame.image.load(path).convert_alpha()
+            self.heart_image = pygame.transform.scale(self.heart_image, (self.heart_size, self.heart_size))
+        except Exception as e:
+            print(f"Could not load heart image: {path}, Error: {e}")
+            self.heart_image = None
+
+    def draw(self, screen, health):
+        hearts_to_show = max(0, health // 20)
+
+        start_x = 20
+        start_y = 20
+
+        for i in range(self.max_hearts):
+            x_pos = start_x + i * (self.heart_size + self.heart_spacing)
+
+            if self.heart_image:
+                if i < hearts_to_show:
+                    screen.blit(self.heart_image, (x_pos, start_y))
+                else:
+                    grayed_heart = self.heart_image.copy()
+                    grayed_heart.set_alpha(50)
+                    screen.blit(grayed_heart, (x_pos, start_y))
+            else:
+                if i < hearts_to_show:
+                    pygame.draw.rect(screen, (255, 0, 0), (x_pos, start_y, self.heart_size, self.heart_size))
+                else:
+                    pygame.draw.rect(screen, (100, 100, 100), (x_pos, start_y, self.heart_size, self.heart_size))
+
 class GameLoop:
 
-    def __init__(self, background_path="Assets/Background.png"):
+    def __init__(self, background_path="Assets/Background.png", damage_background_path="Assets/Background2.png"):
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("")
         self.clock = pygame.time.Clock()
         self.running = True
+        self.game_over = False
         self.platforms, self.saws = self.create_level()
 
         self.player = Player(200, 300)
-
+        self.player.set_game_loop(self)
         self.camera = Camera()
 
         self.background = None
+        self.damage_background = None
+
+        self.health_bar = HealthBar()
 
         self.load_background(background_path)
+        self.load_damage_background(damage_background_path)
+
+        self.flash_background_timer = 0
+        self.flash_background_duration = 10
+        self.flash_interval = 10
+
+        self.font_large = pygame.font.Font(None, 72)
+        self.font_small = pygame.font.Font(None, 36)
+
+    def load_damage_background(self, path):
+        try:
+            self.damage_background = pygame.image.load(path).convert()
+            self.damage_background = pygame.transform.scale(self.damage_background, (SCREEN_WIDTH, SCREEN_HEIGHT))
+            print(f"Damage Background loaded: {path}")
+        except Exception as e:
+            print(f"Could not load damage background: {path}, Error: {e}")
+            self.damage_background = None
+
+    def trigger_background_flash(self):
+        self.flash_background_timer = self.flash_background_duration
 
     def load_background(self, path):
         try:
@@ -373,10 +456,39 @@ class GameLoop:
 
         return platforms, saws
 
+    def restart_game(self):
+        self.game_over = False
+        self.platforms, self.saws = self.create_level()
+        self.player = Player(200, 300)
+        self.player.set_game_loop(self)
+        self.camera = Camera()
+
+    def draw_game_over(self):
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay.set_alpha(180)
+        overlay.fill((0, 0, 0))
+        self.screen.blit(overlay, (0, 0))
+
+        game_over_text = self.font_large.render("GAME OVER", True, (255, 50, 50))
+        game_over_rect = game_over_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50))
+        self.screen.blit(game_over_text, game_over_rect)
+
+        restart_text = self.font_small.render("Press R to Restart", True, (255, 255, 255))
+        restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20))
+        self.screen.blit(restart_text, restart_rect)
+
+        quit_text = self.font_small.render("Press ESC to Quit", True, (200, 200, 200))
+        quit_rect = quit_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 60))
+        self.screen.blit(quit_text, quit_rect)
+
     def draw(self):
-        if self.background:
-            bg_width = self.background.get_width()
-            bg_height = self.background.get_height()
+        if self.flash_background_timer > 0 and self.damage_background:
+            if (self.flash_background_timer // self.flash_interval) % 2 == 1:
+                self.screen.blit(self.damage_background, (0, 0))
+        else:
+            if self.background:
+                bg_width = self.background.get_width()
+                bg_height = self.background.get_height()
 
             tiles_x = (SCREEN_WIDTH // bg_width) + 1
             tiles_y = (SCREEN_HEIGHT // bg_height) + 1
@@ -395,9 +507,20 @@ class GameLoop:
         for saw in self.saws:
             saw.draw(self.screen, self.camera)
 
+        self.health_bar.draw(self.screen, self.player.health)
+
+        if self.game_over:
+            self.draw_game_over()
+
         pygame.display.flip()
 
     def update(self):
+        if self.game_over:
+            return
+
+        if self.flash_background_timer > 0:
+            self.flash_background_timer -= 1
+
         keys = pygame.key.get_pressed()
         for platform in self.platforms:
             platform.update()
@@ -408,13 +531,19 @@ class GameLoop:
         self.player.check_saw_collision(self.saws)
         self.camera.update(self.player)
         if self.player.player_dead:
-            self.running = False
+            self.game_over = True
 
     def run(self):
         while self.running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
+                elif event.type == pygame.KEYDOWN:
+                    if self.game_over:
+                        if event.key == pygame.K_r:
+                            self.restart_game()
+                        elif event.key == pygame.K_ESCAPE:
+                            self.running = False
 
             self.clock.tick(FPS)
             self.update()
