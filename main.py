@@ -1,6 +1,7 @@
 import pygame
 
 pygame.init()
+pygame.mixer.init()
 
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
@@ -54,9 +55,19 @@ class Player:
         self.animation_speeds = {'idle': 15,'walk_right': 8,'walk_left': 8,'jump': 12,'fall': 12}
 
         self.load_sprite_sheet(sprite_sheet_path)
+        self.damage_sound = None
+        self.load_sounds()
 
     def set_game_loop(self, game_loop_instance):
         self.game_loop = game_loop_instance
+
+    def load_sounds(self):
+        try:
+            self.damage_sound = pygame.mixer.Sound("Assets/damage.wav")
+            self.damage_sound.set_volume(0.5)
+        except Exception as e:
+            print(f"Could not load damage sound: {e}")
+            self.damage_sound = None
 
     def load_sprite_sheet(self, path, frame_width=32, frame_height=32, idle_frames=2, walk_frames=3, jump_frames=2):
         try:
@@ -208,6 +219,8 @@ class Player:
                 self.health -= 20
                 self.damage_cooldown = self.damage_cooldown_max
                 self.invincible = True
+                if self.damage_sound:
+                    self.damage_sound.play()
                 if self.game_loop:
                     self.game_loop.trigger_background_flash()
                 break
@@ -404,14 +417,23 @@ class GameLoop:
         self.flash_background_duration = 10
         self.flash_interval = 10
 
+        self.load_background_music("Assets/background_music.mp3")
+
         self.font_large = pygame.font.Font(None, 72)
         self.font_small = pygame.font.Font(None, 36)
+
+    def load_background_music(self, path):
+        try:
+            pygame.mixer.music.load(path)
+            pygame.mixer.music.set_volume(0.3)
+            pygame.mixer.music.play(-1)
+        except Exception as e:
+            print(f"Could not load background music: {path}, Error: {e}")
 
     def load_damage_background(self, path):
         try:
             self.damage_background = pygame.image.load(path).convert()
             self.damage_background = pygame.transform.scale(self.damage_background, (SCREEN_WIDTH, SCREEN_HEIGHT))
-            print(f"Damage Background loaded: {path}")
         except Exception as e:
             print(f"Could not load damage background: {path}, Error: {e}")
             self.damage_background = None
@@ -422,7 +444,6 @@ class GameLoop:
     def load_background(self, path):
         try:
             self.background = pygame.image.load(path).convert()
-            print(f"Background loaded: {path}")
         except Exception as e:
             print(f"Could not load background: {path}, Error: {e}")
             self.background = None
@@ -525,8 +546,6 @@ class GameLoop:
         moving_vert_5.move_speed = 3
         platforms.append(moving_vert_5)
 
-        # --- NEW CHALLENGES ADDED BELOW ---
-
         platforms.append(Platform(500, -1250, 300, 40))
 
         platforms.append(Platform(350, -1300, 100, 40))
@@ -542,7 +561,7 @@ class GameLoop:
         moving_vert_6.move_range = 150
         moving_vert_6.move_speed = 3
         platforms.append(moving_vert_6)
-#1
+
         platforms.append(Platform(350, -1650, 100, 20))
 
         platforms.append(Platform(450, -1650, 100, 20))
@@ -675,6 +694,7 @@ class GameLoop:
             self.update()
             self.draw()
 
+        pygame.mixer.music.stop()
         pygame.quit()
 
 game = GameLoop()
