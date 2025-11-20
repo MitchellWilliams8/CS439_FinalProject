@@ -229,6 +229,21 @@ class Player:
                     self.game_loop.trigger_background_flash()
                 break
 
+    def check_enemy_collision(self, enemies):
+        if self.invincible:
+            return
+
+        for enemy in enemies:
+            if self.rect.colliderect(enemy.rect):
+                self.health -= 20
+                self.damage_cooldown = self.damage_cooldown_max
+                self.invincible = True
+                if self.damage_sound:
+                    self.damage_sound.play()
+                if self.game_loop:
+                    self.game_loop.trigger_background_flash()
+                break
+
     def check_heart_item_collision(self, heart_items):
         for heart_item in heart_items:
             if self.rect.colliderect(heart_item.rect):
@@ -347,6 +362,64 @@ class HeartItem:
         draw_rect = camera.apply(sprite_rect)
         screen.blit(self.image, draw_rect)
 
+class Enemy:
+
+    def __init__(self, x, y, sprite_sheet_path="Assets/Enemy.png"):
+        self.x = x
+        self.y = y
+        self.width = 100
+        self.height = 60
+        self.hitbox_width = 70
+        self.hitbox_height = 60
+        self.rect = pygame.Rect(x + (self.width - self.hitbox_width) // 2,y + (self.height - self.hitbox_height) // 2,self.hitbox_width,self.hitbox_height)
+        self.original_x = x
+        self.original_y = y
+
+        self.move_speed = 2
+        self.move_range = 100
+        self.move_direction = 1
+        self.vel_x = 0
+        self.vel_y = 0
+
+        self.sprite_sheet = None
+        self.frames = []
+        self.current_frame = 0
+        self.animation_speed = 0.5
+        self.frame_counter = 0
+
+        self.load_sprite_sheet(sprite_sheet_path)
+
+    def load_sprite_sheet(self, path, frame_width=32, frame_height=21, num_frames=4):
+        try:
+            self.sprite_sheet = pygame.image.load(path).convert_alpha()
+
+            for i in range(num_frames):
+                frame_x = i * frame_width
+                frame = self.sprite_sheet.subsurface(pygame.Rect(frame_x, 0, frame_width, frame_height))
+                frame = pygame.transform.scale(frame, (self.width, self.height))
+                self.frames.append(frame)
+        except:
+            print(f"Could not load sprite sheet: {path}")
+            self.sprite_sheet = None
+
+    def update(self):
+        self.vel_x = self.vel_y = 0
+        self.vel_x = self.move_speed * self.move_direction
+        self.rect.x += self.vel_x
+        if abs(self.rect.x - self.original_x) > self.move_range:
+            self.move_direction *= -1
+        if self.frames:
+            self.frame_counter += self.animation_speed
+            if self.frame_counter >= 1:
+                self.frame_counter = 0
+                self.current_frame = (self.current_frame + 1) % len(self.frames)
+
+    def draw(self, screen, camera):
+        sprite_rect = pygame.Rect(self.rect.x, self.rect.y, self.width, self.height)
+        draw_rect = camera.apply(sprite_rect)
+
+        screen.blit(self.frames[self.current_frame], draw_rect)
+
 class Platform:
 
     def __init__(self, x, y, width, height, platform_type="normal", image_path="Assets/Platform.png"):
@@ -438,7 +511,7 @@ class GameLoop:
         self.clock = pygame.time.Clock()
         self.running = True
         self.game_over = False
-        self.platforms, self.saws, self.heart_items = self.create_level()
+        self.platforms, self.saws, self.heart_items, self.enemies = self.create_level()
 
         self.player = Player(200, 300)
         self.player.set_game_loop(self)
@@ -491,8 +564,14 @@ class GameLoop:
         saws = []
         platforms = []
         heart_items = []
+        enemies = []
 
         platforms.append(Platform(50, 400, 300, 40))
+
+        enemy1 = Enemy(50, 250)
+        enemy1.move_range = 250
+        enemy1.move_speed = 3
+        enemies.append(enemy1)
 
         heart_items.append(HeartItem(-820, 250))
 
@@ -508,12 +587,12 @@ class GameLoop:
 
         saws.append(Saw(400, 300))
 
-        moving_vert_1 = Platform(200, 200, 100, 20, "moving_vertical")
+        moving_vert_1 = Platform(200, 200, 100, 40, "moving_vertical")
         moving_vert_1.move_range = 150
         moving_vert_1.move_speed = 3
         platforms.append(moving_vert_1)
 
-        platforms.append(Platform(50, 150, 200, 40))
+        platforms.append(Platform(50, 150, 150, 40))
 
         moving_horiz_1 = Platform(350, 100, 100, 20, "moving_horizontal")
         moving_horiz_1.move_range = 250
@@ -526,7 +605,7 @@ class GameLoop:
 
         platforms.append(Platform(950, 50, 50, 40))
 
-        moving_vert_2 = Platform(1100, -50, 70, 30, "moving_vertical")
+        moving_vert_2 = Platform(1100, -50, 70, 40, "moving_vertical")
         moving_vert_2.move_range = 100
         moving_vert_2.move_speed = 3
         platforms.append(moving_vert_2)
@@ -588,7 +667,7 @@ class GameLoop:
         moving_vert_5.move_speed = 3
         platforms.append(moving_vert_5)
 
-        platforms.append(Platform(500, -1250, 300, 40))
+        platforms.append(Platform(500, -1250, 200, 40))
 
         platforms.append(Platform(350, -1300, 100, 40))
 
@@ -641,11 +720,11 @@ class GameLoop:
 
         platforms.append(Platform(2100, -2400, 50, 20))
 
-        return platforms, saws, heart_items
+        return platforms, saws, heart_items, enemies
 
     def restart_game(self):
         self.game_over = False
-        self.platforms, self.saws, self.heart_items = self.create_level()
+        self.platforms, self.saws, self.heart_items, self.enemies = self.create_level()
         self.player = Player(200, 300)
         self.player.set_game_loop(self)
         self.camera = Camera()
@@ -694,6 +773,9 @@ class GameLoop:
         for saw in self.saws:
             saw.draw(self.screen, self.camera)
 
+        for enemy in self.enemies:
+            enemy.draw(self.screen, self.camera)
+
         for heart_item in self.heart_items:
             heart_item.draw(self.screen, self.camera)
 
@@ -716,9 +798,12 @@ class GameLoop:
             platform.update()
         for saw in self.saws:
             saw.update()
+        for enemy in self.enemies:
+            enemy.update()
         self.player.handle_input(keys)
         self.player.update(self.platforms)
         self.player.check_saw_collision(self.saws)
+        self.player.check_enemy_collision(self.enemies)
         self.player.check_heart_item_collision(self.heart_items)
         self.camera.update(self.player)
         if self.player.player_dead:
