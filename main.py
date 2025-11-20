@@ -56,6 +56,7 @@ class Player:
 
         self.load_sprite_sheet(sprite_sheet_path)
         self.damage_sound = None
+        self.collection_sound = None
         self.load_sounds()
 
     def set_game_loop(self, game_loop_instance):
@@ -64,10 +65,13 @@ class Player:
     def load_sounds(self):
         try:
             self.damage_sound = pygame.mixer.Sound("Assets/damage.wav")
-            self.damage_sound.set_volume(0.5)
+            self.damage_sound.set_volume(0.2)
+            self.collection_sound = pygame.mixer.Sound("Assets/collection.wav")
+            self.collection_sound.set_volume(1.5)
         except Exception as e:
-            print(f"Could not load damage sound: {e}")
+            print(f"Could not load sounds: {e}")
             self.damage_sound = None
+            self.collection_sound = None
 
     def load_sprite_sheet(self, path, frame_width=32, frame_height=32, idle_frames=2, walk_frames=3, jump_frames=2):
         try:
@@ -225,6 +229,15 @@ class Player:
                     self.game_loop.trigger_background_flash()
                 break
 
+    def check_heart_item_collision(self, heart_items):
+        for heart_item in heart_items:
+            if self.rect.colliderect(heart_item.rect):
+                self.health = min(self.health + 20, 200)
+                heart_items.remove(heart_item)
+                if self.collection_sound:
+                    self.collection_sound.play()
+                break
+
     def update(self, platforms):
         if self.damage_cooldown > 0:
             self.damage_cooldown -= 1
@@ -308,6 +321,32 @@ class Saw:
 
         screen.blit(self.frames[self.current_frame], draw_rect)
 
+class HeartItem:
+
+    def __init__(self, x, y, image_path = "Assets/Heart.png"):
+        self.x = x
+        self.y = y
+        self.width = 30
+        self.height = 30
+        self.hitbox_width = 30
+        self.hitbox_height = 30
+        self.rect = pygame.Rect(x + (self.width - self.hitbox_width) // 2,y + (self.height - self.hitbox_height) // 2,self.hitbox_width,self.hitbox_height)
+        self.image = None
+        self.load_image(image_path)
+
+    def load_image(self, path):
+        try:
+            self.image = pygame.image.load(path).convert_alpha()
+            self.image = pygame.transform.scale(self.image, (self.rect.width, self.rect.height))
+        except:
+            print(f"Could not load image: {path}")
+            self.image = None
+
+    def draw(self, screen, camera):
+        sprite_rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        draw_rect = camera.apply(sprite_rect)
+        screen.blit(self.image, draw_rect)
+
 class Platform:
 
     def __init__(self, x, y, width, height, platform_type="normal", image_path="Assets/Platform.png"):
@@ -321,7 +360,7 @@ class Platform:
         self.move_direction = 1
         self.vel_x = 0
         self.vel_y = 0
-
+        self.image = None
         self.load_image(image_path)
 
     def load_image(self, path):
@@ -399,7 +438,7 @@ class GameLoop:
         self.clock = pygame.time.Clock()
         self.running = True
         self.game_over = False
-        self.platforms, self.saws = self.create_level()
+        self.platforms, self.saws, self.heart_items = self.create_level()
 
         self.player = Player(200, 300)
         self.player.set_game_loop(self)
@@ -451,8 +490,11 @@ class GameLoop:
     def create_level(self):
         saws = []
         platforms = []
+        heart_items = []
 
         platforms.append(Platform(50, 400, 300, 40))
+
+        heart_items.append(HeartItem(-820, 250))
 
         platforms.append(Platform(500, 400, 300, 40))
 
@@ -599,11 +641,11 @@ class GameLoop:
 
         platforms.append(Platform(2100, -2400, 50, 20))
 
-        return platforms, saws
+        return platforms, saws, heart_items
 
     def restart_game(self):
         self.game_over = False
-        self.platforms, self.saws = self.create_level()
+        self.platforms, self.saws, self.heart_items = self.create_level()
         self.player = Player(200, 300)
         self.player.set_game_loop(self)
         self.camera = Camera()
@@ -652,6 +694,9 @@ class GameLoop:
         for saw in self.saws:
             saw.draw(self.screen, self.camera)
 
+        for heart_item in self.heart_items:
+            heart_item.draw(self.screen, self.camera)
+
         self.health_bar.draw(self.screen, self.player.health)
 
         if self.game_over:
@@ -674,6 +719,7 @@ class GameLoop:
         self.player.handle_input(keys)
         self.player.update(self.platforms)
         self.player.check_saw_collision(self.saws)
+        self.player.check_heart_item_collision(self.heart_items)
         self.camera.update(self.player)
         if self.player.player_dead:
             self.game_over = True
