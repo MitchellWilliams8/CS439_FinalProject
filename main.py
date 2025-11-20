@@ -52,11 +52,18 @@ class Player:
         self.current_frame = 0
         self.frame_counter = 0
 
+        self.projectiles = []
+        self.shoot_cooldown = 0
+        self.shoot_cooldown_max = 20
+        self.ammo = 30
+        self.max_ammo = 30
+
         self.animation_speeds = {'idle': 15,'walk_right': 8,'walk_left': 8,'jump': 12,'fall': 12}
 
         self.load_sprite_sheet(sprite_sheet_path)
         self.damage_sound = None
         self.collection_sound = None
+        self.shoot_sound = None
         self.load_sounds()
 
     def set_game_loop(self, game_loop_instance):
@@ -68,10 +75,13 @@ class Player:
             self.damage_sound.set_volume(0.2)
             self.collection_sound = pygame.mixer.Sound("Assets/collection.wav")
             self.collection_sound.set_volume(1.5)
+            self.shoot_sound = pygame.mixer.Sound("Assets/shoot.wav")
+            self.shoot_sound.set_volume(1.5)
         except Exception as e:
             print(f"Could not load sounds: {e}")
             self.damage_sound = None
             self.collection_sound = None
+            self.shoot_sound = None
 
     def load_sprite_sheet(self, path, frame_width=32, frame_height=32, idle_frames=2, walk_frames=3, jump_frames=2):
         try:
@@ -161,6 +171,9 @@ class Player:
         else:
             pygame.draw.rect(screen, (100, 100, 200), draw_rect)
 
+        for projectile in self.projectiles:
+            projectile.draw(screen, camera)
+
     def handle_input(self, keys):
         self.vel_x = 0
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
@@ -172,6 +185,20 @@ class Player:
             self.vel_y = self.jump_power
             self.on_ground = False
             self.on_moving_platform = None
+
+        if keys[pygame.K_x]:
+            self.shoot()
+
+    def shoot(self):
+        if self.shoot_cooldown == 0 and self.ammo > 0:
+            projectile_x = self.rect.centerx
+            projectile_y = self.rect.centery
+            direction = 1 if self.facing_right else -1
+            self.projectiles.append(Projectile(projectile_x, projectile_y, direction))
+            self.shoot_cooldown = self.shoot_cooldown_max
+            self.ammo -= 1
+            if self.shoot_sound:
+                self.shoot_sound.play()
 
     def check_collision_x(self, platforms):
         for platform in platforms:
@@ -253,6 +280,26 @@ class Player:
                     self.collection_sound.play()
                 break
 
+    def check_projectile_collisions(self, enemies):
+        for projectile in self.projectiles[:]:
+            for enemy in enemies:
+                if projectile.rect.colliderect(enemy.rect):
+                    if projectile in self.projectiles:
+                        self.projectiles.remove(projectile)
+                    enemy.health -= 20
+                    if enemy.health <= 0 and enemy in enemies:
+                        enemies.remove(enemy)
+                    break
+
+    def check_ammo_item_collision(self, ammo_items):
+        for ammo_item in ammo_items[:]:
+            if self.rect.colliderect(ammo_item.rect):
+                self.ammo = min(self.ammo + ammo_item.ammo_amount, self.max_ammo)
+                ammo_items.remove(ammo_item)
+                if self.collection_sound:
+                    self.collection_sound.play()
+                break
+
     def update(self, platforms):
         if self.damage_cooldown > 0:
             self.damage_cooldown -= 1
@@ -290,6 +337,50 @@ class Player:
             self.player_dead = True
 
         self.update_animation()
+
+        if self.shoot_cooldown > 0:
+            self.shoot_cooldown -= 1
+
+        for projectile in self.projectiles[:]:
+            projectile.update()
+            if projectile.is_off_screen(self.camera if hasattr(self, 'camera') else None):
+                self.projectiles.remove(projectile)
+
+class Projectile:
+    def __init__(self, x, y, direction, image_path = "Assets/Ammo.png"):
+        self.x = x
+        self.y = y
+        self.width = 15
+        self.height = 8
+        self.rect = pygame.Rect(x, y, self.width, self.height)
+        self.speed = 10
+        self.direction = direction
+        self.color = (255, 255, 0)
+        self.image = None
+        self.load_image(image_path)
+
+    def load_image(self, path):
+        try:
+            self.image = pygame.image.load(path).convert_alpha()
+            self.image = pygame.transform.scale(self.image, (self.rect.width, self.rect.height))
+        except:
+            print(f"Could not load image: {path}")
+            self.image = None
+
+    def update(self):
+        self.x += self.speed * self.direction
+        self.rect.x = self.x
+
+    def draw(self, screen, camera):
+        sprite_rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        draw_rect = camera.apply(sprite_rect)
+        screen.blit(self.image, draw_rect)
+
+    def is_off_screen(self, camera):
+        if camera is None:
+            return False
+        distance = abs(self.x - (camera.offset_x + SCREEN_WIDTH // 2))
+        return distance > SCREEN_WIDTH * 2
 
 class Saw:
 
@@ -362,6 +453,31 @@ class HeartItem:
         draw_rect = camera.apply(sprite_rect)
         screen.blit(self.image, draw_rect)
 
+class AmmoItem:
+    def __init__(self, x, y, image_path="Assets/Ammo.png"):
+        self.x = x
+        self.y = y
+        self.width = 40
+        self.height = 40
+        self.hitbox_width = 40
+        self.hitbox_height = 40
+        self.rect = pygame.Rect(x + (self.width - self.hitbox_width) // 2,y + (self.height - self.hitbox_height) // 2,self.hitbox_width,self.hitbox_height)
+        self.ammo_amount = 10
+        self.image = None
+        self.load_image(image_path)
+
+    def load_image(self, path):
+        try:
+            self.image = pygame.image.load(path).convert_alpha()
+            self.image = pygame.transform.scale(self.image, (self.rect.width, self.rect.height))
+        except:
+            print(f"Could not load image: {path}")
+
+    def draw(self, screen, camera):
+        sprite_rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        draw_rect = camera.apply(sprite_rect)
+        screen.blit(self.image, draw_rect)
+
 class Enemy:
 
     def __init__(self, x, y, sprite_sheet_path="Assets/Enemy.png"):
@@ -386,6 +502,8 @@ class Enemy:
         self.current_frame = 0
         self.animation_speed = 0.5
         self.frame_counter = 0
+
+        self.health = 60
 
         self.load_sprite_sheet(sprite_sheet_path)
 
@@ -503,6 +621,52 @@ class HealthBar:
                 else:
                     pygame.draw.rect(screen, (100, 100, 100), (x_pos, start_y, self.heart_size, self.heart_size))
 
+
+class AmmoDisplay:
+    def __init__(self, ammo_path="Assets/Ammo.png"):
+        self.ammo_image = None
+        self.ammo_size = 30
+        self.ammo_spacing = 5
+        self.max_ammo = 30
+        self.load_ammo(ammo_path)
+
+    def load_ammo(self, path):
+        try:
+            self.ammo_image = pygame.image.load(path).convert_alpha()
+            self.ammo_image = pygame.transform.scale(self.ammo_image, (self.ammo_size, self.ammo_size))
+        except Exception as e:
+            print(f"Could not load heart image: {path}, Error: {e}")
+            self.ammo_image = None
+
+    def draw(self, screen, ammo):
+        ammo_to_show = max(0,ammo)
+        start_x = SCREEN_WIDTH - 350
+        start_y = 20
+
+        icons_per_row = 10
+        row_height = self.ammo_size +5
+
+        for i in range(self.max_ammo):
+            row = i // icons_per_row
+            col = i % icons_per_row
+
+            x_pos = start_x + col * (self.ammo_size + self.ammo_spacing)
+            y_pos = start_y + row * row_height
+
+            if self.ammo_image:
+                if i < ammo_to_show:
+                    screen.blit(self.ammo_image, (x_pos, y_pos))
+                else:
+                    grayed_ammo = self.ammo_image.copy()
+                    grayed_ammo.set_alpha(50)
+                    screen.blit(grayed_ammo, (x_pos, y_pos))
+            else:
+                if i < ammo_to_show:
+                    pygame.draw.rect(screen, (255, 0, 0), (x_pos, y_pos, self.ammo_size, self.ammo_size))
+                else:
+                    pygame.draw.rect(screen, (100, 100, 100), (x_pos, y_pos, self.ammo_size, self.ammo_size))
+
+
 class GameLoop:
 
     def __init__(self, background_path="Assets/Background.png", damage_background_path="Assets/Background2.png"):
@@ -511,7 +675,7 @@ class GameLoop:
         self.clock = pygame.time.Clock()
         self.running = True
         self.game_over = False
-        self.platforms, self.saws, self.heart_items, self.enemies = self.create_level()
+        self.platforms, self.saws, self.heart_items, self.enemies, self.ammo_items = self.create_level()
 
         self.player = Player(200, 300)
         self.player.set_game_loop(self)
@@ -521,6 +685,8 @@ class GameLoop:
         self.damage_background = None
 
         self.health_bar = HealthBar()
+
+        self.ammo_display = AmmoDisplay()
 
         self.load_background(background_path)
         self.load_damage_background(damage_background_path)
@@ -565,6 +731,7 @@ class GameLoop:
         platforms = []
         heart_items = []
         enemies = []
+        ammo_items = []
 
         platforms.append(Platform(50, 400, 300, 40))
 
@@ -572,6 +739,10 @@ class GameLoop:
         enemy1.move_range = 250
         enemy1.move_speed = 3
         enemies.append(enemy1)
+
+        ammo_items.append(AmmoItem(-270, 350))
+
+        ammo_items.append(AmmoItem(-570, 300))
 
         heart_items.append(HeartItem(-820, 250))
 
@@ -720,11 +891,11 @@ class GameLoop:
 
         platforms.append(Platform(2100, -2400, 50, 20))
 
-        return platforms, saws, heart_items, enemies
+        return platforms, saws, heart_items, enemies, ammo_items
 
     def restart_game(self):
         self.game_over = False
-        self.platforms, self.saws, self.heart_items, self.enemies = self.create_level()
+        self.platforms, self.saws, self.heart_items, self.enemies, self.ammo_items = self.create_level()
         self.player = Player(200, 300)
         self.player.set_game_loop(self)
         self.camera = Camera()
@@ -779,7 +950,12 @@ class GameLoop:
         for heart_item in self.heart_items:
             heart_item.draw(self.screen, self.camera)
 
+        for ammo_item in self.ammo_items:
+            ammo_item.draw(self.screen, self.camera)
+
         self.health_bar.draw(self.screen, self.player.health)
+
+        self.ammo_display.draw(self.screen, self.player.ammo)
 
         if self.game_over:
             self.draw_game_over()
@@ -805,6 +981,8 @@ class GameLoop:
         self.player.check_saw_collision(self.saws)
         self.player.check_enemy_collision(self.enemies)
         self.player.check_heart_item_collision(self.heart_items)
+        self.player.check_projectile_collisions(self.enemies)
+        self.player.check_ammo_item_collision(self.ammo_items)
         self.camera.update(self.player)
         if self.player.player_dead:
             self.game_over = True
