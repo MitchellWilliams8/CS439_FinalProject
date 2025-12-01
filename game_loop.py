@@ -4,7 +4,7 @@ from camera import Camera
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT, FPS
 from level import create_level
 from player import Player
-from ui import HealthBar, AmmoDisplay
+from ui import HealthBar, AmmoDisplay, FrogDisplay, ScoreDisplay
 
 pygame.init()
 pygame.mixer.init()
@@ -31,6 +31,8 @@ class GameLoop:
 
         self.health_bar = HealthBar()
         self.ammo_display = AmmoDisplay()
+        self.frog_display = FrogDisplay()
+        self.score_display = ScoreDisplay()
 
         self.load_background(background_path)
         self.load_damage_background(damage_background_path)
@@ -65,6 +67,9 @@ class GameLoop:
     def trigger_background_flash(self):
         self.flash_background_timer = self.flash_background_duration
 
+    def trigger_score_event(self):
+        self.frog_display.trigger_rotation()
+
     def load_background(self, path):
         try:
             self.background = pygame.image.load(path).convert()
@@ -79,6 +84,7 @@ class GameLoop:
         self.player = Player(200, 300)
         self.player.set_game_loop(self)
         self.camera = Camera()
+        self.frog_display.reset()
 
     def draw_game_over(self):
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -141,6 +147,8 @@ class GameLoop:
 
         self.health_bar.draw(self.screen, self.player.health)
         self.ammo_display.draw(self.screen, self.player.ammo)
+        self.frog_display.draw(self.screen)
+        self.score_display.draw(self.screen, self.player.score)
 
         if self.game_over:
             self.draw_game_over()

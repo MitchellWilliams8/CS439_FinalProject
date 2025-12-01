@@ -2,7 +2,6 @@ import pygame
 from constants import SCREEN_WIDTH
 from functions import load_image
 
-
 class HealthBar:
     def __init__(self, heart_path="Assets/Heart.png"):
         self.heart_size = 40
@@ -37,6 +36,43 @@ class HealthBar:
                         (x_pos, start_y, self.heart_size, self.heart_size)
                     )
 
+class ScoreDisplay:
+    def __init__(self):
+        self.font = pygame.font.Font(None, 48)
+        self.color = (255, 255, 255)
+
+    def draw(self, screen, score):
+        score_surface = self.font.render(f"Score: {score}", True, self.color)
+        screen.blit(score_surface, (20, 70))
+
+class FrogDisplay:
+    def __init__(self, image_path="Assets/Frog.png"):
+        self.frog_size = 100
+        self.original_image = load_image(image_path, self.frog_size, self.frog_size)
+        self.angle = 0
+        self.rotation_speed = 40
+        self.remaining_rotation = 0
+
+    def trigger_rotation(self):
+        self.remaining_rotation += 2000
+
+    def reset(self):
+        self.angle = 0
+        self.remaining_rotation = 0
+
+    def draw(self, screen):
+        if self.remaining_rotation > 0:
+            rotate_amount = min(self.rotation_speed, self.remaining_rotation)
+            self.angle = (self.angle - rotate_amount) % 360
+            self.remaining_rotation -= rotate_amount
+
+        if self.original_image:
+            rotated_image = pygame.transform.rotate(self.original_image, self.angle)
+            center_pos = (60, 180)
+            new_rect = rotated_image.get_rect(center=center_pos)
+            screen.blit(rotated_image, new_rect)
+        else:
+            pygame.draw.rect(screen, (0, 255, 0), (20, 130, self.frog_size, self.frog_size))
 
 class AmmoDisplay:
     def __init__(self, ammo_path="Assets/Ammo.png"):

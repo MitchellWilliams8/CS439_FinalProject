@@ -47,6 +47,8 @@ class Player:
         self.shoot_cooldown_max = 20
         self.ammo = 30
         self.max_ammo = 30
+        self.frog = 0
+        self.score = 0
 
         self.animation_speeds = {
             'idle': 15,
@@ -325,6 +327,10 @@ class Player:
                     enemy.health -= 20
                     if enemy.health <= 0 and enemy in enemies:
                         enemies.remove(enemy)
+                        self.score += 1
+
+                        if self.game_loop:
+                            self.game_loop.trigger_score_event()
                     break
 
     def check_ammo_item_collision(self, ammo_items):
