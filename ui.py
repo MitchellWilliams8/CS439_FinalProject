@@ -26,8 +26,8 @@ class HealthBar:
 
 class ScoreDisplay:
     def __init__(self):
-        self.font = pygame.font.Font(None, 48)
-        self.color = (255, 255, 255)
+        self.font = pygame.font.Font("Assets/ShinyEyes-prr1.ttf", 48)
+        self.color = (100, 255, 30)
 
     def draw(self, screen, score):
         score_surface = self.font.render(f"Score: {score}", True, self.color)
@@ -35,7 +35,7 @@ class ScoreDisplay:
 
 class FrogDisplay:
     def __init__(self, image_path="Assets/Frog.png"):
-        self.frog_size = 100
+        self.frog_size = 80
         self.original_image = load_image(image_path, self.frog_size, self.frog_size)
         self.angle = 0
         self.rotation_speed = 15

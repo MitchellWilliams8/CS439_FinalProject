@@ -18,6 +18,7 @@ class GameLoop:
         pygame.display.set_caption("")
         self.clock = pygame.time.Clock()
         self.running = True
+        self.game_started = False
         self.game_over = False
         self.game_won = False
 
@@ -46,8 +47,8 @@ class GameLoop:
 
         self.load_background_music("Assets/background_music.mp3")
 
-        self.font_large = pygame.font.Font(None, 72)
-        self.font_small = pygame.font.Font(None, 36)
+        self.font_large = pygame.font.Font("Assets/ShinyEyes-prr1.ttf", 72)
+        self.font_small = pygame.font.Font("Assets/ShinyEyes-prr1.ttf", 36)
 
     def load_background_music(self, path):
         pygame.mixer.music.load(path)
@@ -72,6 +73,20 @@ class GameLoop:
         self.player.set_game_loop(self)
         self.camera = Camera()
         self.frog_display.reset()
+
+    def draw_start_screen(self):
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay.set_alpha(180)
+        overlay.fill((0, 0, 0))
+        self.screen.blit(overlay, (0, 0))
+
+        title_text = self.font_large.render("Wizard Frog", True, (100, 255, 30))
+        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50))
+        self.screen.blit(title_text, title_rect)
+
+        start_text = self.font_small.render("Press SPACE to Start", True, (255, 255, 255))
+        start_rect = start_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 40))
+        self.screen.blit(start_text, start_rect)
 
     def draw_game_over(self):
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -109,7 +124,7 @@ class GameLoop:
         overlay.fill((0, 0, 0))
         self.screen.blit(overlay, (0, 0))
 
-        victory_text = self.font_large.render("VICTORY!", True, (50, 255, 50))
+        victory_text = self.font_large.render("VICTORY!", True, (100, 255, 30))
         victory_rect = victory_text.get_rect(
             center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 80)
         )
@@ -150,6 +165,11 @@ class GameLoop:
                     tile_y = y * bg_height
                     self.screen.blit(self.background, (tile_x, tile_y))
 
+        if not self.game_started:
+            self.draw_start_screen()
+            pygame.display.flip()
+            return
+
         for platform in self.platforms:
             platform.draw(self.screen, self.camera)
 
@@ -180,7 +200,7 @@ class GameLoop:
         pygame.display.flip()
 
     def update(self):
-        if self.game_over or self.game_won:
+        if self.game_over or self.game_won or not self.game_started:
             return
 
         if self.flash_background_timer > 0:
@@ -220,6 +240,11 @@ class GameLoop:
                 if event.type == pygame.QUIT:
                     self.running = False
                 elif event.type == pygame.KEYDOWN:
+                    if not self.game_started:
+                        if event.key == pygame.K_SPACE:
+                            self.game_started = True
+                        elif event.key == pygame.K_ESCAPE:
+                            self.running = False
                     if self.game_over or self.game_won:
                         if event.key == pygame.K_r:
                             self.restart_game()
