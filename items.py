@@ -42,8 +42,6 @@ class AmmoItem:
 
     def load_image(self, path):
         self.image = load_image(path, self.rect.width, self.rect.height)
-        if self.image is None:
-            print(f"Could not load image for AmmoItem: {path}")
 
     def draw(self, screen, camera):
         sprite_rect = pygame.Rect(self.x, self.y, self.width, self.height)

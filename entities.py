@@ -62,8 +62,6 @@ class Saw:
             scale_width=self.width,
             scale_height=self.height
         )
-        if not self.frames:
-            print(f"Could not load sprite sheet for Saw: {path}")
 
     def update(self):
         if self.frames:
@@ -122,8 +120,6 @@ class Enemy:
             scale_width=self.width,
             scale_height=self.height
         )
-        if not self.frames:
-            print(f"Could not load sprite sheet for Enemy: {path}")
 
     def update(self):
         self.vel_x = self.vel_y = 0
@@ -163,8 +159,6 @@ class Platform:
 
     def load_image(self, path):
         self.image = load_image(path, self.rect.width, self.rect.height)
-        if self.image is None:
-            print(f"Could not load image for Platform: {path}")
 
     def update(self):
         self.vel_x = self.vel_y = 0

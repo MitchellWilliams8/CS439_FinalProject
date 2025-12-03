@@ -4,7 +4,6 @@ from constants import GRAVITY, FALL_SPEED
 from entities import Projectile
 from functions import update_animation_frame, load_sprite_sheet
 
-
 class Player:
     def __init__(self, x, y, sprite_sheet_path="Assets/Player.png"):
         self.x = x
@@ -69,18 +68,12 @@ class Player:
         self.game_loop = game_loop_instance
 
     def load_sounds(self):
-        try:
-            self.damage_sound = pygame.mixer.Sound("Assets/damage.wav")
-            self.damage_sound.set_volume(0.2)
-            self.collection_sound = pygame.mixer.Sound("Assets/collection.wav")
-            self.collection_sound.set_volume(1.5)
-            self.shoot_sound = pygame.mixer.Sound("Assets/shoot.wav")
-            self.shoot_sound.set_volume(1.5)
-        except Exception as e:
-            print(f"Could not load sounds: {e}")
-            self.damage_sound = None
-            self.collection_sound = None
-            self.shoot_sound = None
+        self.damage_sound = pygame.mixer.Sound("Assets/damage.wav")
+        self.damage_sound.set_volume(0.2)
+        self.collection_sound = pygame.mixer.Sound("Assets/collection.wav")
+        self.collection_sound.set_volume(1.5)
+        self.shoot_sound = pygame.mixer.Sound("Assets/shoot.wav")
+        self.shoot_sound.set_volume(1.5)
 
     def load_player_assets(self, path, frame_width=32, frame_height=32,
                            idle_frames=2, walk_frames=3, jump_frames=2):
@@ -95,10 +88,6 @@ class Player:
             scale_width=self.width,
             scale_height=self.height
         )
-
-        if not all_frames:
-            print(f"Failed to load player animations from {path}")
-            return
 
         current_index = 0
 
@@ -196,8 +185,7 @@ class Player:
             self.projectiles.append(Projectile(projectile_x, projectile_y, direction))
             self.shoot_cooldown = self.shoot_cooldown_max
             self.ammo -= 1
-            if self.shoot_sound:
-                self.shoot_sound.play()
+            self.shoot_sound.play()
 
     def check_collision_x(self, platforms):
         for platform in platforms:
@@ -230,6 +218,11 @@ class Player:
                     self.y = self.rect.y
                     self.vel_y = 0
                     self.on_ground = True
+
+                    if platform.type == "win":
+                        if self.game_loop:
+                            self.game_loop.trigger_victory()
+                        return
 
                     if platform.type in ("moving_vertical", "moving_horizontal"):
                         self.on_moving_platform = platform
@@ -288,8 +281,7 @@ class Player:
                 self.health -= 20
                 self.damage_cooldown = self.damage_cooldown_max
                 self.invincible = True
-                if self.damage_sound:
-                    self.damage_sound.play()
+                self.damage_sound.play()
                 if self.game_loop:
                     self.game_loop.trigger_background_flash()
                 break
@@ -303,8 +295,7 @@ class Player:
                 self.health -= 20
                 self.damage_cooldown = self.damage_cooldown_max
                 self.invincible = True
-                if self.damage_sound:
-                    self.damage_sound.play()
+                self.damage_sound.play()
                 if self.game_loop:
                     self.game_loop.trigger_background_flash()
                 break
@@ -314,8 +305,7 @@ class Player:
             if self.rect.colliderect(heart_item.rect):
                 self.health = min(self.health + 20, 200)
                 heart_items.remove(heart_item)
-                if self.collection_sound:
-                    self.collection_sound.play()
+                self.collection_sound.play()
                 break
 
     def check_projectile_collisions(self, enemies):
@@ -328,7 +318,6 @@ class Player:
                     if enemy.health <= 0 and enemy in enemies:
                         enemies.remove(enemy)
                         self.score += 1
-
                         if self.game_loop:
                             self.game_loop.trigger_score_event()
                     break
@@ -338,7 +327,5 @@ class Player:
             if self.rect.colliderect(ammo_item.rect):
                 self.ammo = min(self.ammo + ammo_item.ammo_amount, self.max_ammo)
                 ammo_items.remove(ammo_item)
-                if self.collection_sound:
-                    self.collection_sound.play()
+                self.collection_sound.play()
                 break
-

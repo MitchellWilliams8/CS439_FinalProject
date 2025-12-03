@@ -10,6 +10,7 @@ pygame.init()
 pygame.mixer.init()
 pygame.mixer.set_num_channels(64)
 
+
 class GameLoop:
     def __init__(self, background_path="Assets/Background.png",
                  damage_background_path="Assets/Background2.png"):
@@ -18,6 +19,7 @@ class GameLoop:
         self.clock = pygame.time.Clock()
         self.running = True
         self.game_over = False
+        self.game_won = False
 
         self.platforms, self.saws, self.heart_items, self.enemies, self.ammo_items = \
             create_level()
@@ -26,16 +28,17 @@ class GameLoop:
         self.player.set_game_loop(self)
         self.camera = Camera()
 
-        self.background = None
-        self.damage_background = None
+        self.background = pygame.image.load(background_path).convert()
+        self.damage_background = pygame.image.load(damage_background_path).convert()
+
+        self.damage_background = pygame.transform.scale(
+            self.damage_background, (SCREEN_WIDTH, SCREEN_HEIGHT)
+        )
 
         self.health_bar = HealthBar()
         self.ammo_display = AmmoDisplay()
         self.frog_display = FrogDisplay()
         self.score_display = ScoreDisplay()
-
-        self.load_background(background_path)
-        self.load_damage_background(damage_background_path)
 
         self.flash_background_timer = 0
         self.flash_background_duration = 10
@@ -47,22 +50,9 @@ class GameLoop:
         self.font_small = pygame.font.Font(None, 36)
 
     def load_background_music(self, path):
-        try:
-            pygame.mixer.music.load(path)
-            pygame.mixer.music.set_volume(0.3)
-            pygame.mixer.music.play(-1)
-        except Exception as e:
-            print(f"Could not load background music: {path}, Error: {e}")
-
-    def load_damage_background(self, path):
-        try:
-            self.damage_background = pygame.image.load(path).convert()
-            self.damage_background = pygame.transform.scale(
-                self.damage_background, (SCREEN_WIDTH, SCREEN_HEIGHT)
-            )
-        except Exception as e:
-            print(f"Could not load damage background: {path}, Error: {e}")
-            self.damage_background = None
+        pygame.mixer.music.load(path)
+        pygame.mixer.music.set_volume(0.3)
+        pygame.mixer.music.play(-1)
 
     def trigger_background_flash(self):
         self.flash_background_timer = self.flash_background_duration
@@ -70,15 +60,12 @@ class GameLoop:
     def trigger_score_event(self):
         self.frog_display.trigger_rotation()
 
-    def load_background(self, path):
-        try:
-            self.background = pygame.image.load(path).convert()
-        except Exception as e:
-            print(f"Could not load background: {path}, Error: {e}")
-            self.background = None
+    def trigger_victory(self):
+        self.game_won = True
 
     def restart_game(self):
         self.game_over = False
+        self.game_won = False
         self.platforms, self.saws, self.heart_items, self.enemies, self.ammo_items = \
             create_level()
         self.player = Player(200, 300)
@@ -94,39 +81,74 @@ class GameLoop:
 
         game_over_text = self.font_large.render("GAME OVER", True, (255, 50, 50))
         game_over_rect = game_over_text.get_rect(
-            center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50)
+            center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 80)
         )
         self.screen.blit(game_over_text, game_over_rect)
 
+        score_text = self.font_small.render(f"Final Score: {self.player.score}", True, (255, 255, 255))
+        score_rect = score_text.get_rect(
+            center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20)
+        )
+        self.screen.blit(score_text, score_rect)
+
         restart_text = self.font_small.render("Press R to Restart", True, (255, 255, 255))
         restart_rect = restart_text.get_rect(
-            center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20)
+            center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 30)
         )
         self.screen.blit(restart_text, restart_rect)
 
         quit_text = self.font_small.render("Press ESC to Quit", True, (200, 200, 200))
         quit_rect = quit_text.get_rect(
-            center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 60)
+            center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 70)
+        )
+        self.screen.blit(quit_text, quit_rect)
+
+    def draw_victory(self):
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay.set_alpha(180)
+        overlay.fill((0, 0, 0))
+        self.screen.blit(overlay, (0, 0))
+
+        victory_text = self.font_large.render("VICTORY!", True, (50, 255, 50))
+        victory_rect = victory_text.get_rect(
+            center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 80)
+        )
+        self.screen.blit(victory_text, victory_rect)
+
+        score_text = self.font_small.render(f"Final Score: {self.player.score}", True, (255, 255, 255))
+        score_rect = score_text.get_rect(
+            center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20)
+        )
+        self.screen.blit(score_text, score_rect)
+
+        restart_text = self.font_small.render("Press R to Restart", True, (200, 200, 200))
+        restart_rect = restart_text.get_rect(
+            center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 30)
+        )
+        self.screen.blit(restart_text, restart_rect)
+
+        quit_text = self.font_small.render("Press ESC to Quit", True, (200, 200, 200))
+        quit_rect = quit_text.get_rect(
+            center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 70)
         )
         self.screen.blit(quit_text, quit_rect)
 
     def draw(self):
-        if self.flash_background_timer > 0 and self.damage_background:
+        if self.flash_background_timer > 0:
             if (self.flash_background_timer // self.flash_interval) % 2 == 1:
                 self.screen.blit(self.damage_background, (0, 0))
         else:
-            if self.background:
-                bg_width = self.background.get_width()
-                bg_height = self.background.get_height()
+            bg_width = self.background.get_width()
+            bg_height = self.background.get_height()
 
-                tiles_x = (SCREEN_WIDTH // bg_width) + 1
-                tiles_y = (SCREEN_HEIGHT // bg_height) + 1
+            tiles_x = (SCREEN_WIDTH // bg_width) + 1
+            tiles_y = (SCREEN_HEIGHT // bg_height) + 1
 
-                for x in range(tiles_x):
-                    for y in range(tiles_y):
-                        tile_x = x * bg_width
-                        tile_y = y * bg_height
-                        self.screen.blit(self.background, (tile_x, tile_y))
+            for x in range(tiles_x):
+                for y in range(tiles_y):
+                    tile_x = x * bg_width
+                    tile_y = y * bg_height
+                    self.screen.blit(self.background, (tile_x, tile_y))
 
         for platform in self.platforms:
             platform.draw(self.screen, self.camera)
@@ -152,11 +174,13 @@ class GameLoop:
 
         if self.game_over:
             self.draw_game_over()
+        elif self.game_won:
+            self.draw_victory()
 
         pygame.display.flip()
 
     def update(self):
-        if self.game_over:
+        if self.game_over or self.game_won:
             return
 
         if self.flash_background_timer > 0:
@@ -196,7 +220,7 @@ class GameLoop:
                 if event.type == pygame.QUIT:
                     self.running = False
                 elif event.type == pygame.KEYDOWN:
-                    if self.game_over:
+                    if self.game_over or self.game_won:
                         if event.key == pygame.K_r:
                             self.restart_game()
                         elif event.key == pygame.K_ESCAPE:
