@@ -38,11 +38,11 @@ class FrogDisplay:
         self.frog_size = 80
         self.original_image = load_image(image_path, self.frog_size, self.frog_size)
         self.angle = 0
-        self.rotation_speed = 15
+        self.rotation_speed = 20
         self.remaining_rotation = 0
 
     def trigger_rotation(self):
-        self.remaining_rotation += 360
+        self.remaining_rotation += 670
 
     def reset(self):
         self.angle = 0

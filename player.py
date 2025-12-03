@@ -48,6 +48,7 @@ class Player:
         self.max_ammo = 30
         self.frog = 0
         self.score = 0
+        self.shoot_anim_timer = 0
 
         self.animation_speeds = {
             'idle': 15,
@@ -113,6 +114,11 @@ class Player:
 
         if not is_grounded:
             new_animation = 'jump'
+        elif self.shoot_anim_timer > 0:
+            if self.facing_right:
+                new_animation = 'walk_right'
+            else:
+                new_animation = 'walk_left'
         elif abs(self.vel_x) > 0.1:
             if self.vel_x > 0:
                 new_animation = 'walk_right'
@@ -186,6 +192,7 @@ class Player:
             self.shoot_cooldown = self.shoot_cooldown_max
             self.ammo -= 1
             self.shoot_sound.play()
+            self.shoot_anim_timer = 15
 
     def check_collision_x(self, platforms):
         for platform in platforms:
@@ -241,6 +248,9 @@ class Player:
             self.damage_cooldown -= 1
             if self.damage_cooldown == 0:
                 self.invincible = False
+
+        if self.shoot_anim_timer > 0:
+            self.shoot_anim_timer -= 1
 
         if self.on_moving_platform:
             if (self.rect.right > self.on_moving_platform.rect.left and
