@@ -41,6 +41,7 @@ class GameLoop:
         self.frog_display = FrogDisplay()
         self.score_display = ScoreDisplay()
 
+        self.warning_message_timer = 0
         self.flash_background_timer = 0
         self.flash_background_duration = 10
         self.flash_interval = 10
@@ -63,6 +64,9 @@ class GameLoop:
 
     def trigger_victory(self):
         self.game_won = True
+
+    def trigger_requirement_warning(self):
+        self.warning_message_timer = 120
 
     def restart_game(self):
         self.game_over = False
@@ -192,6 +196,11 @@ class GameLoop:
         self.frog_display.draw(self.screen)
         self.score_display.draw(self.screen, self.player.score)
 
+        if self.warning_message_timer > 0:
+            warning_text = self.font_small.render("Score must be at least 4 to complete the level", True, (255, 100, 100))
+            warning_rect = warning_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+            self.screen.blit(warning_text, warning_rect)
+
         if self.game_over:
             self.draw_game_over()
         elif self.game_won:
@@ -205,6 +214,9 @@ class GameLoop:
 
         if self.flash_background_timer > 0:
             self.flash_background_timer -= 1
+
+        if self.warning_message_timer > 0:
+            self.warning_message_timer -= 1
 
         keys = pygame.key.get_pressed()
 

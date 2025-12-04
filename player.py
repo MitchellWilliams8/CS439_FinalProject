@@ -227,8 +227,12 @@ class Player:
                     self.on_ground = True
 
                     if platform.type == "win":
-                        if self.game_loop:
-                            self.game_loop.trigger_victory()
+                        if self.score >= 4:
+                            if self.game_loop:
+                                self.game_loop.trigger_victory()
+                        else:
+                            if self.game_loop:
+                                self.game_loop.trigger_requirement_warning()
                         return
 
                     if platform.type in ("moving_vertical", "moving_horizontal"):

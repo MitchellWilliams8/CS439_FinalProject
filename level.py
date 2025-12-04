@@ -15,11 +15,33 @@ def create_level():
     enemy1.move_speed = 3
     enemies.append(enemy1)
 
-    ammo_items.append(AmmoItem(-270, 350))
+    enemy2 = Enemy(1000, -800)
+    enemy2.move_range = 550
+    enemy2.move_speed = 5
+    enemies.append(enemy2)
 
-    ammo_items.append(AmmoItem(-570, 300))
+    enemy3 = Enemy(300, -1400)
+    enemy3.move_range = 350
+    enemy3.move_speed = 2
+    enemies.append(enemy3)
+
+    enemy4 = Enemy(2000, -2300)
+    enemy4.move_range = 1150
+    enemy4.move_speed = 3
+    enemies.append(enemy4)
+
+    enemy5 = Enemy(700, 0)
+    enemy5.move_range = 100
+    enemy5.move_speed = 6
+    enemies.append(enemy5)
+
+    ammo_items.append(AmmoItem(-230, 350))
+
+    ammo_items.append(AmmoItem(-530, 300))
 
     heart_items.append(HeartItem(-820, 250))
+
+    heart_items.append(HeartItem(400, 250))
 
     platforms.append(Platform(500, 400, 300, 40))
 
@@ -31,17 +53,17 @@ def create_level():
 
     saws.append(Saw(600, 300))
 
-    saws.append(Saw(400, 300))
+    saws.append(Saw(370, 300))
 
-    moving_vert_1 = Platform(200, 200, 100, 40, "moving_vertical")
-    moving_vert_1.move_range = 150
-    moving_vert_1.move_speed = 3
+    moving_vert_1 = Platform(200, 220, 90, 40, "moving_vertical")
+    moving_vert_1.move_range = 80
+    moving_vert_1.move_speed = 2
     platforms.append(moving_vert_1)
 
     platforms.append(Platform(50, 150, 150, 40))
 
-    moving_horiz_1 = Platform(350, 100, 100, 20, "moving_horizontal")
-    moving_horiz_1.move_range = 250
+    moving_horiz_1 = Platform(450, 100, 100, 20, "moving_horizontal")
+    moving_horiz_1.move_range = 150
     moving_horiz_1.move_speed = 3
     platforms.append(moving_horiz_1)
 
