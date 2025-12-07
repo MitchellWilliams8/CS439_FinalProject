@@ -117,16 +117,33 @@ Manages the display elements.
 - **HealthBar:** Shows player health. It calculates how many hearts to show based on health // 20 and draws empty (grayed out) hearts for missing health.
 - **AmmoDisplay:** Shows a grid of bullet icons. It uses rows and columns to stack icons neatly and lowers the transparency of used ammo slots.
 - **FrogDisplay:** A display that rotates when score increases.
+- **ScoreDisplay:** Shows the player's score.
 
 ### functions.py
 A library of static helper methods.
 - **load_sprite_sheet:** Iterates through a main image file, extracting frames to create a list of animation frames.
 - **update_animation_frame:** A utility that increments a floating point counter. When the counter exceeds 1, it advances the frame index, separating animation speed from the game's framerate.
-
+- **create_centered_rect:** creates a smaller hitbox within a larger sprite.
+  
 ### constants.py
 Constants for the game.
 - Centralizes constants like SCREEN_WIDTH, SCREEN_HEIGHT, FPS, and GRAVITY to make global tuning easier.
 
+## Project Process
+
+### Goal
+The main goal of this project was to create a fun game using a graphics library without a whole game engine. I wanted to focus on getting a better understanding of the logic behind things like 2D physics, collision detection, and state management that many full game engines would aready have built in.
+
+### Challenges & Solutions
+
+#### 1. Moving Platform Physics
+- **Challenge:** Initially when a platform moved sideways the player would stay in place and the platform would slide out from under them.
+- **Solution:** The Player class detects when it is standing on a moving_horizontal platform and stores a reference to it. Every frame, the game adds the platform's current velocity to the player's position which locks them together until the player jumps or walks off.
+
+#### 2. Camera Tracking
+- **Challenge:** At first the game was limited to what was on screen. I wanted the game to feel larger than what the screen offered and needed a smooth way to do it.
+- **Solution:** I made a Camera class that calculates a continuous offset based on the player's center relative to the screen center. This offset is applied to every entity during the drwaing phase, creating a smooth scrolling effect.
+  
 ## Asset Requirements
 
 To run successfully, the Assets/ folder must contain:
@@ -144,5 +161,13 @@ To run successfully, the Assets/ folder must contain:
 - shoot.wav - Sound effect. 
 - collection.wav - Sound effect. 
 - background_music.mp3 - Music track. 
-- ShinyEyes-prr1.ttf - Custom font file. 
+- ShinyEyes-prr1.ttf - Custom font file.
+
+## Credits
+
+- **Art & Sprites:** Created by me
+- **Sound Effects:** Created by me
+- **Music:** Created by me
+- **Fonts:** Shiny Eyes - Used for main text.
+    - link: https://www.fontspace.com/shiny-eyes-font-f25572
 
