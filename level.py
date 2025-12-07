@@ -186,7 +186,7 @@ def create_level():
     moving_horiz_7.move_speed = 3
     platforms.append(moving_horiz_7)
 
-    winning_platform = Platform(2100, -2400, 50, 20, platform_type="win")
+    winning_platform = Platform(2100, -2400, 50, 20, "win")
     platforms.append(winning_platform)
 
     return platforms, saws, heart_items, enemies, ammo_items

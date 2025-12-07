@@ -252,17 +252,14 @@ class GameLoop:
                 if event.type == pygame.QUIT:
                     self.running = False
                 elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.running = False
                     if not self.game_started:
                         if event.key == pygame.K_SPACE:
                             self.game_started = True
-                        elif event.key == pygame.K_ESCAPE:
-                            self.running = False
                     if self.game_over or self.game_won:
                         if event.key == pygame.K_r:
                             self.restart_game()
-                        elif event.key == pygame.K_ESCAPE:
-                            self.running = False
-
             self.clock.tick(FPS)
             self.update()
             self.draw()
